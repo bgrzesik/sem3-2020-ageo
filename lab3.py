@@ -47,6 +47,46 @@ def orient(a, b, c):
         return 1
     elif d < 0:
         return -1
+
+
+# %%
+SETS = {
+    "A": [[0.0, 100.0],
+          [-10.0, 75.0],
+          [-5.0, 50.0],
+          [0.0, 0.0],
+          [5.0, 20],
+          [10.0, 30.0],
+          [50.0, 50.0],
+          [50.0, 90.0]],
+
+    "B": [[50, 75],
+          [-25, 50],
+          [25, 25],
+          [-25, 0],
+          [50, -25]],
+
+    "nonB": [[0.0, 100.0],
+             [-5.0, 50.0],
+             [10.0, 75.0],
+             [0.0, 0.0],
+             [50.0, 50.0],
+             [50.0, 90.0]],
+
+    "C": [[29.36572356215214, 75.51020408163268],
+          [-94.19642857142857, 6.493506493506516],
+          [62.01878478664196, -88.49721706864563],
+          [89.84809833024121, 16.883116883116912],
+          [18.605055658627094, 30.983302411873865]],
+
+    "D": [[0.12755102040816269, 74.3970315398887],
+          [-74.45500927643783, -1.2987012987012747],
+          [2.353896103896119, -76.99443413729125],
+          [76.56539888682747, -1.2987012987012747],
+          [1.6117810760667908, 24.304267161410053],
+          [29.441094619666075, 68.46011131725422],
+          [-3.2119666048237434, 96.66048237476812]],
+}
 # %%
 
 
@@ -71,36 +111,26 @@ def split_chains(points, axis=1):
 
     chain_b.append(points[i])
 
-    if p_max < p_min:
-        chain_b.reverse()
-    else:
-        chain_a.reverse()
+    if p_max > p_min:
+        chain_a, chain_b = chain_b, chain_a
 
+    chain_b.reverse()
     return chain_a, chain_b
 
 
-def plot_points(ax, points):
+def plot_points(ax, points, **kw_args):
     points = np.array(points)
-    ax.plot(points[:, 0], points[:, 1])
+    ax.plot(points[:, 0], points[:, 1], **kw_args)
 
 
-points = [
-    [0.0, 100.0],
-    [-5.0, 50.0],
-    [0.0, 0.0],
-    [50.0, 50.0],
-    [50.0, 90.0],
-]
-
-points = [[0.8696660482374909, 70.68645640074214],
-          [-57.386363636363626, 4.267161410018588],
-          [37.975417439703165, 5.751391465677216],
-          [30.554267161410024, 88.49721706864568]]
+points = SETS["B"]
 fig, ax = plt.subplots()
 left, right = split_chains(points)
+fig.show()
 
-plot_points(ax, left)
-plot_points(ax, right)
+plot_points(ax, left, color="b")
+plot_points(ax, right, color="r")
+
 # %%
 
 
@@ -117,25 +147,11 @@ def check_monotone(points, axis=1):
 
     return True
 
-
 # %%
 
-print(check_monotone([
-    [0.0, 100.0],
-    [-5.0, 50.0],
-    [0.0, 0.0],
-    [50.0, 50.0],
-    [50.0, 90.0],
-]))
 
-print(check_monotone([
-    [0.0, 100.0],
-    [-5.0, 50.0],
-    [10.0, 75.0],
-    [0.0, 0.0],
-    [50.0, 50.0],
-    [50.0, 90.0],
-]))
+print(check_monotone(SETS["B"]))
+print(check_monotone(SETS["nonB"]))
 
 # %%
 
@@ -143,11 +159,29 @@ print(check_monotone([
 def monotone_triangulate(points, axis=1):
     left, right = split_chains(points, axis=axis)
 
-    points = points.copy()
-    points.sort(reverse=True, key=lambda p: (p[axis], -p[axis ^ 1]))
+    # points = points.copy()
+    # points.sort(reverse=True, key=lambda p: (p[axis], -p[axis ^ 1]))
 
+    li, ri = 1, 1
+    points = [left[0]]
+    while li < len(left) - 1 or ri < len(right) - 1:
+        if li >= len(left) - 1:
+            points.append(right[ri])
+            ri += 1
+        elif ri >= len(right) - 1:
+            points.append(left[li])
+            li += 1
+        elif left[li][1] >= right[ri][1]:
+            points.append(left[li])
+            li += 1
+        elif left[li][1] < right[ri][1]:
+            points.append(right[ri])
+            ri += 1
+        else:
+            assert False
+
+    points.append(left[-1])
     queue = points[:2]
-
     triangles = []
 
     for i in range(2, len(points)):
@@ -163,39 +197,21 @@ def monotone_triangulate(points, axis=1):
 
             queue = [points[i - 1], points[i]]
         else:
-            a = queue.pop()
-
-            while queue and orient(queue[-1], p, a) == -1:
-                triangles.append((queue[-1], a, p))
-                a = queue.pop()
-                if queue:
-                    print(p, queue, a, orient(queue[-1], a, p))
-
-            queue.append(a)
+            skipped = []
+            while len(queue) >= 2:
+                ori = orient(queue[-2], p, queue[-1])
+                if ((p in left and ori == -1) or (p in right and ori == 1)):
+                    triangles.append((queue[-2], queue[-1], p))
+                    queue.pop()
+                else:
+                    break
             queue.append(p)
-
-    print(queue)
 
     return triangles
 
 
 # %%
-points = [
-    [0.0, 100.0],
-    [-10.0, 75.0],
-    [-5.0, 50.0],
-    [0.0, 0.0],
-    [5.0, 20],
-    [10.0, 30.0],
-    [50.0, 50.0],
-    [50.0, 90.0],
-]
-points = [[50, 75],
-          [-25, 50],
-          [25, 25],
-          [-25, 0],
-          [50, -25]]
-
+points = SETS["D"]
 fig, ax = plt.subplots()
 left, right = split_chains(points)
 
@@ -206,8 +222,9 @@ triangles = monotone_triangulate(points)
 print(triangles)
 
 for a, b, c in triangles:
-    ax.text((a[0] + b[0] + c[0]) / 3.0, (a[1] + b[1] + c[1]) / 3.0, "")
-    ax.fill([a[0], b[0], c[0]], [a[1], b[1], c[1]], alpha=0.3)
+    x = [a[0], b[0], c[0]]
+    y = [a[1], b[1], c[1]]
+    ax.fill(x, y, alpha=0.3)
 
 # %%
 
