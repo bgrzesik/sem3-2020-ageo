@@ -86,6 +86,24 @@ SETS = {
           [1.6117810760667908, 24.304267161410053],
           [29.441094619666075, 68.46011131725422],
           [-3.2119666048237434, 96.66048237476812]],
+
+    "H": [[0.12755102040816269, 68.46011131725422],
+          [-57.015306122448976, 44.71243042671617],
+          [-18.05426716141001, 24.675324675324703],
+          [-47.36781076066789, 3.8961038961039094],
+          [-12.117346938775512, -6.493506493506473],
+          [-60.725881261595546, -30.612244897959158],
+          [-18.796382189239324, -44.712430426716125],
+          [-62.952226345083474, -56.9573283858998],
+          [4.951298701298725, -66.2337662337662],
+          [59.49675324675326, -51.7625231910946],
+          [19.051484230055678, -38.40445269016695],
+          [62.094155844155864, -19.85157699443411],
+          [22.019944341372934, -9.090909090909065],
+          [70.2574211502783, 7.977736549165144],
+          [18.30936920222635, 23.933209647495403],
+          [60.238868274582586, 33.20964749536182],
+          [0.8696660482374909, 50.27829313543603]],
 }
 # %%
 
@@ -138,7 +156,7 @@ def check_monotone(points, axis=1):
     left, right = split_chains(points, axis=axis)
 
     for i in range(1, len(left)):
-        if left[i][axis] > left[i - 1][axis]:
+        if left[i][axis] left[i - 1][axis]:
             return False
 
     for i in range(1, len(right)):
@@ -158,50 +176,50 @@ print(check_monotone(SETS["nonB"]))
 
 def monotone_triangulate(points, axis=1):
     left, right = split_chains(points, axis=axis)
-
-    # points = points.copy()
-    # points.sort(reverse=True, key=lambda p: (p[axis], -p[axis ^ 1]))
+    LEFT, RIGHT, BOTH = 0b01, 0b10, 0b11
 
     li, ri = 1, 1
-    points = [left[0]]
+    points = [(left[0][0], left[0][1], BOTH)]
     while li < len(left) - 1 or ri < len(right) - 1:
         if li >= len(left) - 1:
-            points.append(right[ri])
+            points.append((right[ri][0], right[ri][1], RIGHT))
             ri += 1
         elif ri >= len(right) - 1:
-            points.append(left[li])
+            points.append((left[li][0], left[li][1], LEFT))
             li += 1
         elif left[li][1] >= right[ri][1]:
-            points.append(left[li])
+            points.append((left[li][0], left[li][1], LEFT))
             li += 1
         elif left[li][1] < right[ri][1]:
-            points.append(right[ri])
+            points.append((right[ri][0], right[ri][1], RIGHT))
             ri += 1
         else:
             assert False
 
-    points.append(left[-1])
+    points.append((left[-1][0], left[-1][1], BOTH))
     queue = points[:2]
     triangles = []
+
+    del left, right
 
     for i in range(2, len(points)):
         p = points[i]
 
-        diff_chains = (queue[-1] in left and p in right) or \
-            (queue[-1] in right and p in left)
+        diff_chains = (queue[-1][2] & LEFT and p[2] & RIGHT) or \
+            (queue[-1][2] & RIGHT and p[2] & LEFT)
 
         if diff_chains:
             while len(queue) >= 2:
                 a = queue.pop()
-                triangles.append((a, queue[-1], p))
+                triangles.append((a[:2], queue[-1][:2], p[:2]))
 
             queue = [points[i - 1], points[i]]
         else:
             skipped = []
             while len(queue) >= 2:
                 ori = orient(queue[-2], p, queue[-1])
-                if ((p in left and ori == -1) or (p in right and ori == 1)):
-                    triangles.append((queue[-2], queue[-1], p))
+                if ((p[2] & LEFT and ori == -1) or (p[2] & RIGHT and ori == 1)):
+                    triangles.append((queue[-2][:2], queue[-1][:2], p[:2]))
                     queue.pop()
                 else:
                     break
@@ -211,7 +229,7 @@ def monotone_triangulate(points, axis=1):
 
 
 # %%
-points = SETS["D"]
+points = SETS["A"]
 fig, ax = plt.subplots()
 left, right = split_chains(points)
 
