@@ -42,11 +42,11 @@ def orient(a, b, c):
     d = det(a, b, c)
 
     if -EPSILON < d < EPSILON:
-        return 0
+        return COL
     elif d > 0:
-        return 1
+        return CCW
     elif d < 0:
-        return -1
+        return CW
 
 
 # %%
@@ -172,12 +172,10 @@ print(check_monotone(SETS["B"]))
 print(check_monotone(SETS["nonB"]))
 
 # %%
+LEFT, RIGHT, BOTH = 0b01, 0b10, 0b11
 
 
-def monotone_triangulate(points, axis=1):
-    left, right = split_chains(points, axis=axis)
-    LEFT, RIGHT, BOTH = 0b01, 0b10, 0b11
-
+def chain_sort(left, right):
     li, ri = 1, 1
     points = [(left[0][0], left[0][1], BOTH)]
     while li < len(left) - 1 or ri < len(right) - 1:
@@ -197,18 +195,26 @@ def monotone_triangulate(points, axis=1):
             assert False
 
     points.append((left[-1][0], left[-1][1], BOTH))
+    return points
+
+# %%
+
+
+def monotone_triangulate(points, axis=1):
+    left, right = split_chains(points, axis=axis)
+    points = chain_sort(left, right)
     queue = points[:2]
     triangles = []
+
+    def _is(x, a):
+        return (x & a) == a
 
     del left, right
 
     for i in range(2, len(points)):
         p = points[i]
 
-        diff_chains = (queue[-1][2] & LEFT and p[2] & RIGHT) or \
-            (queue[-1][2] & RIGHT and p[2] & LEFT)
-
-        if diff_chains:
+        if (queue[-1][2] | p[2]) == BOTH:
             while len(queue) >= 2:
                 a = queue.pop()
                 triangles.append((a[:2], queue[-1][:2], p[:2]))
@@ -218,7 +224,9 @@ def monotone_triangulate(points, axis=1):
             skipped = []
             while len(queue) >= 2:
                 ori = orient(queue[-2], p, queue[-1])
-                if ((p[2] & LEFT and ori == -1) or (p[2] & RIGHT and ori == 1)):
+                if (_is(p[2], LEFT) and ori == CW) \
+                        or (_is(p[2], RIGHT) and ori == CCW):
+
                     triangles.append((queue[-2][:2], queue[-1][:2], p[:2]))
                     queue.pop()
                 else:
@@ -233,8 +241,8 @@ points = SETS["A"]
 fig, ax = plt.subplots()
 left, right = split_chains(points)
 
-plot_points(ax, left)
-plot_points(ax, right)
+plot_points(ax, left, color="b")
+plot_points(ax, right, color="r")
 
 triangles = monotone_triangulate(points)
 print(triangles)
@@ -396,3 +404,5 @@ class Application:
 
 
 app = Application()
+
+# %%
