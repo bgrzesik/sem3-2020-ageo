@@ -1,12 +1,6 @@
 # %%
-from IPython.display import Latex
-from functools import cmp_to_key
-from itertools import product
-from timeit import default_timer as timer
-from IPython.display import Markdown, HTML
-from ipywidgets import interactive
+from enum import Enum
 
-import ipywidgets as widgets
 import matplotlib
 import matplotlib.widgets as wig
 import matplotlib.animation as anim
@@ -104,6 +98,25 @@ SETS = {
           [18.30936920222635, 23.933209647495403],
           [60.238868274582586, 33.20964749536182],
           [0.8696660482374909, 50.27829313543603]],
+
+    "W": [[-45.14146567717995, 72.54174397031542],
+          [-81.13404452690166, 36.17810760667908],
+          [-23.62012987012986, -7.235621521335787],
+          [12.372448979591837, 22.448979591836775],
+          [-36.60714285714285, 30.983302411873865],
+          [29.441094619666075, 51.76252319109466],
+          [54.673005565862724, -12.430426716140971],
+          [-13.60157699443414, -36.92022263450832],
+          [-80.762987012987, -18.367346938775484],
+          [-95.60528756957328, -58.81261595547308],
+          [-15.456864564007404, -94.80519480519479],
+          [27.956864564007446, -56.586270871985135],
+          [76.19434137291282, -95.5473098330241],
+          [95.48933209647498, -10.32282003710573],
+          [70.2574211502783, -33.209647495361764],
+          [91.40769944341375, 62.894248608534355],
+          [31.296382189239353, 92.20779220779224],
+          [-4.6961966604823715, 69.94434137291285]],
 }
 # %%
 
@@ -255,6 +268,74 @@ for a, b, c in triangles:
 # %%
 
 
+class Classification(Enum):
+    STARTING = 0
+    FINISHING = 1
+    JOINING = 2
+    DIVIDING = 3
+    REGULAR = 4
+
+
+def classify_points(points, axis=1):
+    result = [None] * len(points)
+
+    for i in range(len(points)):
+        prev = points[i - 1]
+        curr = points[i]
+        next = points[(i + 1) % len(points)]
+
+        # curr above neighbors
+        above = curr[axis] > prev[axis] and curr[axis] > next[axis]
+        below = curr[axis] < prev[axis] and curr[axis] < next[axis]
+        ori = orient(prev, curr, next)
+
+        cl = None
+        if above and ori == CCW:
+            cl = Classification.STARTING
+        elif below and ori == CCW:
+            cl = Classification.FINISHING
+        elif below and ori == CW:
+            cl = Classification.JOINING
+        elif above and ori == CW:
+            cl = Classification.DIVIDING
+        else:
+            cl = Classification.REGULAR
+
+        result[i] = (points[i][0], points[i][1], cl)
+
+    return result
+
+# %%
+
+
+CLASSIFICATION_COLORS = {
+    Classification.STARTING: "#5CC83B",
+    Classification.FINISHING: "#EB3223",
+    Classification.JOINING: "#323693",
+    Classification.DIVIDING: "#C2DFE2",
+    Classification.REGULAR: "#60350F",
+}
+
+
+def plot_classification(ax, points):
+    x = [p[0] for p in points]
+    y = [p[1] for p in points]
+    c = [CLASSIFICATION_COLORS[p[2]] for p in points]
+
+    sc1 = ax.scatter(x, y, color="black", marker="o", linewidth=3, zorder=2)
+    sc2 = ax.scatter(x, y, c=c, marker="o", linewidth=1, zorder=3)
+
+    return sc1, sc2
+
+
+points = classify_points(SETS["W"])
+fig, ax = plt.subplots()
+plot_points(ax, points + [points[0]], color="b", marker="")
+plot_classification(ax, points)
+fig.show()
+# %%
+
+
 class Application:
     def __init__(self):
         self.fig = plt.figure(figsize=(9, 7))
@@ -298,9 +379,14 @@ class Application:
         self.harmania_btn = wig.Button(btn_ax, "Harmonijka")
         self.harmania_btn.on_clicked(self.set_harmania)
 
+        btn_ax = self.fig.add_subplot(gs2[11])
+        self.classify_btn = wig.Button(btn_ax, "Zklasyfikuj")
+        self.classify_btn.on_clicked(self.classify)
+
         self.points = []
         self.text_axes = []
         self.tri_axes = []
+        self.class_axes = []
 
         self.line_l.figure.canvas.mpl_connect(
             "button_press_event", self.add_point)
@@ -396,11 +482,23 @@ class Application:
         self.line_r.set_data([], [])
 
         self.clear_triangles()
+        self.clear_classify()
 
         while self.text_axes:
             self.text_axes.pop().remove()
 
         self.fig.canvas.draw()
+
+    def classify(self, event):
+        self.clear_classify()
+        points = classify_points(self.points)
+        self.class_axes = plot_classification(self.ax, points)
+
+    def clear_classify(self):
+        if self.class_axes:
+            self.class_axes[0].remove()
+            self.class_axes[1].remove()
+            self.class_axes = None
 
 
 app = Application()
