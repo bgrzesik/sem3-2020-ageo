@@ -156,7 +156,7 @@ def check_monotone(points, axis=1):
     left, right = split_chains(points, axis=axis)
 
     for i in range(1, len(left)):
-        if left[i][axis] < left[i - 1][axis]:
+        if left[i][axis] > left[i - 1][axis]:
             return False
 
     for i in range(1, len(right)):
@@ -282,6 +282,14 @@ class Application:
         self.reset_btn = wig.Button(btn_ax, "Reset")
         self.reset_btn.on_clicked(self.reset)
 
+        btn_ax = self.fig.add_subplot(gs2[7])
+        self.circle_btn = wig.Button(btn_ax, "Koło")
+        self.circle_btn.on_clicked(self.set_circle)
+
+        btn_ax = self.fig.add_subplot(gs2[9])
+        self.harmania_btn = wig.Button(btn_ax, "Harmonijka")
+        self.harmania_btn.on_clicked(self.set_harmania)
+
         self.points = []
         self.text_axes = []
         self.tri_axes = []
@@ -351,6 +359,28 @@ class Application:
         while self.tri_axes:
             self.tri_axes.pop().remove()
 
+    def set_circle(self, event):
+        alpha = np.linspace(0.5 * np.pi, 2.5 * np.pi, 64)
+        r = 95.0
+        points = [(np.cos(a) * r, np.sin(a) * r) for a in alpha]
+
+        self.set_points(points)
+
+    def set_harmania(self, event):
+        points = []
+        alpha = np.linspace(95, -90, 32)
+        r = 50.0
+        for i, a in enumerate(alpha):
+            rr = r if i % 2 == 0 else r / 2
+            points.append((-rr, a))
+
+        alpha = np.linspace(-95, 90, 32)
+        for i, a in enumerate(alpha):
+            rr = r if i % 2 == 0 else r / 2
+            points.append((rr, a))
+
+        self.set_points(points)
+
     def reset(self, event):
         self.text.set_text("Reset")
         self.points = []
@@ -366,11 +396,3 @@ class Application:
 
 
 app = Application()
-
-# %%
-alpha = np.linspace(0.5 * np.pi, 2.5 * np.pi, 100)
-r = 100.0
-points = [(np.cos(a) * r, np.sin(a) * r) for a in alpha]
-display(points)
-app = Application()
-app.set_points(points)
