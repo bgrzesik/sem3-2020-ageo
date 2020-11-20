@@ -1,5 +1,5 @@
 # %%
-from enum import Enum
+from enum import Enum, Flag
 
 import matplotlib
 import matplotlib.widgets as wig
@@ -29,18 +29,19 @@ def det(a, b, c):
     return det
 
 
-CCW, COL, CW = 1, 0, -1
+class Orient(int, Enum):
+    CCW, COL, CW = 1, 0, -1
 
 
 def orient(a, b, c):
     d = det(a, b, c)
 
     if -EPSILON < d < EPSILON:
-        return COL
+        return Orient.COL
     elif d > 0:
-        return CCW
+        return Orient.CCW
     elif d < 0:
-        return CW
+        return Orient.CW
 
 
 # %%
@@ -185,29 +186,32 @@ print(check_monotone(SETS["B"]))
 print(check_monotone(SETS["nonB"]))
 
 # %%
-LEFT, RIGHT, BOTH = 0b01, 0b10, 0b11
+
+
+class Chain(int, Flag):
+    LEFT, RIGHT, BOTH = 0b01, 0b10, 0b11
 
 
 def chain_sort(left, right):
     li, ri = 1, 1
-    points = [(left[0][0], left[0][1], BOTH)]
+    points = [(left[0][0], left[0][1], Chain.BOTH)]
     while li < len(left) - 1 or ri < len(right) - 1:
         if li >= len(left) - 1:
-            points.append((right[ri][0], right[ri][1], RIGHT))
+            points.append((right[ri][0], right[ri][1], Chain.RIGHT))
             ri += 1
         elif ri >= len(right) - 1:
-            points.append((left[li][0], left[li][1], LEFT))
+            points.append((left[li][0], left[li][1], Chain.LEFT))
             li += 1
         elif left[li][1] >= right[ri][1]:
-            points.append((left[li][0], left[li][1], LEFT))
+            points.append((left[li][0], left[li][1], Chain.LEFT))
             li += 1
         elif left[li][1] < right[ri][1]:
-            points.append((right[ri][0], right[ri][1], RIGHT))
+            points.append((right[ri][0], right[ri][1], Chain.RIGHT))
             ri += 1
         else:
             assert False
 
-    points.append((left[-1][0], left[-1][1], BOTH))
+    points.append((left[-1][0], left[-1][1], Chain.BOTH))
     return points
 
 # %%
@@ -227,7 +231,7 @@ def monotone_triangulate(points, axis=1):
     for i in range(2, len(points)):
         p = points[i]
 
-        if (queue[-1][2] | p[2]) == BOTH:
+        if (queue[-1][2] | p[2]) == Chain.BOTH:
             while len(queue) >= 2:
                 a = queue.pop()
                 triangles.append((a[:2], queue[-1][:2], p[:2]))
@@ -237,8 +241,8 @@ def monotone_triangulate(points, axis=1):
             skipped = []
             while len(queue) >= 2:
                 ori = orient(queue[-2], p, queue[-1])
-                if (_is(p[2], LEFT) and ori == CW) \
-                        or (_is(p[2], RIGHT) and ori == CCW):
+                if (_is(p[2], Chain.LEFT) and ori == Orient.CW) \
+                        or (_is(p[2], Chain.RIGHT) and ori == Orient.CCW):
 
                     triangles.append((queue[-2][:2], queue[-1][:2], p[:2]))
                     queue.pop()
@@ -290,13 +294,13 @@ def classify_points(points, axis=1):
         ori = orient(prev, curr, next)
 
         cl = None
-        if above and ori == CCW:
+        if above and ori == Orient.CCW:
             cl = Classification.STARTING
-        elif below and ori == CCW:
+        elif below and ori == Orient.CCW:
             cl = Classification.FINISHING
-        elif below and ori == CW:
+        elif below and ori == Orient.CW:
             cl = Classification.JOINING
-        elif above and ori == CW:
+        elif above and ori == Orient.CW:
             cl = Classification.DIVIDING
         else:
             cl = Classification.REGULAR
