@@ -156,7 +156,7 @@ def check_monotone(points, axis=1):
     left, right = split_chains(points, axis=axis)
 
     for i in range(1, len(left)):
-        if left[i][axis] left[i - 1][axis]:
+        if left[i][axis] < left[i - 1][axis]:
             return False
 
     for i in range(1, len(right)):
@@ -303,17 +303,24 @@ class Application:
             self.ax.text(event.xdata, event.ydata, str(len(self.points))))
 
         self.points.append([event.xdata, event.ydata])
-        self.clear_triangles()
+        self.draw()
 
-        self.check_monotone(None)
-        try:
-            self.triangulate(None)
-        finally:
-            pass
+    def set_points(self, points):
+        self.reset(None)
+        self.points = points
+
+        for i, p in enumerate(points):
+            self.text_axes.append(self.ax.text(p[0], p[1], str(i)))
 
         self.draw()
 
     def draw(self):
+        try:
+            self.check_monotone(None)
+            self.triangulate(None)
+        finally:
+            pass
+
         left, right = split_chains(self.points)
 
         self.line_l.set_data(np.transpose(left))
@@ -361,3 +368,9 @@ class Application:
 app = Application()
 
 # %%
+alpha = np.linspace(0.5 * np.pi, 2.5 * np.pi, 100)
+r = 100.0
+points = [(np.cos(a) * r, np.sin(a) * r) for a in alpha]
+display(points)
+app = Application()
+app.set_points(points)
