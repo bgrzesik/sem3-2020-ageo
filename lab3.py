@@ -123,28 +123,25 @@ SETS = {
 
 
 def split_chains(points, axis=1):
-    p_max = max(range(len(points)), key=lambda i: points[i][axis])
-    p_min = min(range(len(points)), key=lambda i: points[i][axis])
+    p_max, _ = max(enumerate(points), key=lambda ip: ip[1][axis])
+    p_min, _ = min(enumerate(points), key=lambda ip: ip[1][axis])
 
     chain_a, chain_b = [], []
 
-    i = min(p_min, p_max)
-    while i != max(p_min, p_max):
+    i = p_max
+    while i != p_min:
         chain_a.append(points[i])
         i += 1
         i %= len(points)
 
     chain_a.append(points[i])
 
-    while i != min(p_min, p_max):
+    while i != p_max:
         chain_b.append(points[i])
         i += 1
         i %= len(points)
 
     chain_b.append(points[i])
-
-    if p_max > p_min:
-        chain_a, chain_b = chain_b, chain_a
 
     chain_b.reverse()
     return chain_a, chain_b
