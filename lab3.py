@@ -14,7 +14,7 @@ sns.set_theme()
 sns_style = {"edgecolor": "none", "s": 1}
 plt.rcParams["animation.html"] = "jshtml"
 
-SAVE_FILES = False
+SAVE_FILES = True
 # %%
 EPSILON = 1e-9
 
@@ -505,3 +505,217 @@ class Application:
 app = Application()
 
 # %%
+
+
+def _set_data(ax, points):
+    x = [p[0] for p in points]
+    y = [p[1] for p in points]
+    ax.set_data(x, y)
+
+
+def _frame_phase1(frame, points, black, blue, red):
+    axis = 1
+    p_max, _ = max(enumerate(points), key=lambda ip: ip[1][axis])
+    p_min, _ = min(enumerate(points), key=lambda ip: ip[1][axis])
+
+    frame -= 1
+    black.set_linestyle("solid")
+    black.set_marker("")
+    black.set_data(
+        [-110, 110, 110, -110],
+        [points[p_max][1], points[p_max][1], points[p_min][1], points[p_min][1]]
+    )
+
+    chain_a, chain_b = [], []
+
+    i = p_max
+    while i != p_min and frame > 0:
+        chain_a.append(points[i])
+        i += 1
+        i %= len(points)
+        frame -= 1
+
+    if frame > 0:
+        frame -= 1
+        chain_a.append(points[i])
+
+    while i != p_max and frame > 0:
+        chain_b.append(points[i])
+        i += 1
+        i %= len(points)
+        frame -= 1
+
+    if frame > 0:
+        frame -= 1
+        chain_b.append(points[i])
+
+    _set_data(blue, chain_a)
+    _set_data(red, chain_b)
+
+    chain_b.reverse()
+    return frame, chain_a, chain_b
+
+
+def _frame_phase2(frame, left, right, black):
+    li, ri = 1, 1
+    points = [(left[0][0], left[0][1], Chain.BOTH)]
+
+    # _set_data(black, points[-1])
+
+    while (li < len(left) - 1 or ri < len(right) - 1) and frame > 0:
+        frame -= 1
+
+        if li >= len(left) - 1:
+            points.append((right[ri][0], right[ri][1], Chain.RIGHT))
+            ri += 1
+        elif ri >= len(right) - 1:
+            points.append((left[li][0], left[li][1], Chain.LEFT))
+            li += 1
+        elif left[li][1] >= right[ri][1]:
+            points.append((left[li][0], left[li][1], Chain.LEFT))
+            li += 1
+        elif left[li][1] < right[ri][1]:
+            points.append((right[ri][0], right[ri][1], Chain.RIGHT))
+            ri += 1
+        else:
+            assert False
+
+    if frame > 0:
+        points.append((left[-1][0], left[-1][1], Chain.BOTH))
+        frame -= 2
+
+    black.set_linestyle("solid")
+    black.set_marker("")
+    black.set_data(
+        [-110, 110],
+        [points[-1][1], points[-1][1]]
+    )
+
+    return frame, points
+
+
+def _frame_phase3(frame, points, black, green, ax, polygons):
+    axis = 1
+    queue = points[:2]
+    triangles = []
+
+    def _stop(i):
+        nonlocal frame, black, green, ax, polygons, triangles
+
+        black.set_linestyle("none")
+        black.set_marker("o")
+        _set_data(black, queue)
+
+        _set_data(green, [points[i]])
+
+        for a, b, c in triangles[len(polygons):]:
+            polygons.append(
+                ax.fill(
+                    [a[0], b[0], c[0]],
+                    [a[1], b[1], c[1]]
+                )[0]
+            )
+
+        return frame
+
+    def _is(x, a):
+        return (x & a) == a
+
+    if frame < 0:
+        return _stop(2)
+    frame -= 1
+
+    for i in range(2, len(points)):
+        if frame < 0:
+            return _stop(i)
+        frame -= 1
+
+        p = points[i]
+
+        if (queue[-1][2] | p[2]) == Chain.BOTH:
+            while len(queue) >= 2:
+                if frame < 0:
+                    return _stop(i)
+                frame -= 1
+
+                a = queue.pop()
+                triangles.append((a[:2], queue[-1][:2], p[:2]))
+
+            queue = [points[i - 1], points[i]]
+        else:
+            skipped = []
+            while len(queue) >= 2:
+                if frame < 0:
+                    return _stop(i)
+                frame -= 1
+
+                ori = orient(queue[-2], p, queue[-1])
+                if (_is(p[2], Chain.LEFT) and ori == Orient.CW) \
+                        or (_is(p[2], Chain.RIGHT) and ori == Orient.CCW):
+
+                    triangles.append((queue[-2][:2], queue[-1][:2], p[:2]))
+                    queue.pop()
+                else:
+                    break
+            queue.append(p)
+
+    return _stop(i)
+
+
+def _frame(frame, points, black, blue, red, green, ax, polygons):
+    while frame == 0 and polygons:
+        polygons.pop().remove()
+
+    green.set_data([], [])
+
+    frame, left, right = _frame_phase1(frame, points, black, blue, red)
+    if frame > 0:
+        frame, points = _frame_phase2(frame, left, right, black)
+
+    if frame > 0:
+        frame = _frame_phase3(frame, points, black, green, ax, polygons)
+
+    if frame > 0:
+        black.set_data([], [])
+        green.set_data([], [])
+        frame -= 2
+
+    return frame
+
+
+def animate(points):
+    fig, ax = plt.subplots()
+    ax.set_xlim(-100, 100)
+    ax.set_ylim(-100, 100)
+
+    ax.scatter(
+        [p[0] for p in points],
+        [p[1] for p in points],
+    )
+    black, = ax.plot([], [], color="black", marker="o", zorder=3)
+    green, = ax.plot([], [], color="#33ff33", marker="o", zorder=3)
+    blue, = ax.plot([], [], color="blue", marker="o", zorder=2)
+    red, = ax.plot([], [], color="red", marker="o", zorder=2)
+    polygons = []
+
+    max_frames = 10000
+    frames = max_frames - \
+        _frame(max_frames, points, black, blue, red, green, ax, polygons) + 2
+
+    ani = anim.FuncAnimation(fig, _frame, frames=frames,
+                             fargs=(points, black, blue, red, green, ax, polygons))
+
+    plt.close(fig)
+    return ani
+
+
+ani = animate(SETS["D"])
+ani
+# %%
+if SAVE_FILES:
+    ani.save("Lab3Raport/triangulate.gif")
+
+# %% [markdown]
+# ### Tą komórką można uruchomić animacje z widoku dodawania punktów
+# %%
+display(animate(app.points))
