@@ -160,25 +160,25 @@ def split_chains(points, axis=1):
 
     i = p_max
     while i != p_min:
-        chain_a.append(points[i])
+        chain_a.append(i)
         i += 1
         i %= len(points)
 
-    chain_a.append(points[i])
+    chain_a.append(i)
 
     while i != p_max:
-        chain_b.append(points[i])
+        chain_b.append(i)
         i += 1
         i %= len(points)
 
-    chain_b.append(points[i])
+    chain_b.append(i)
 
     chain_b.reverse()
     return chain_a, chain_b
 
 
-def plot_points(ax, points, **kw_args):
-    points = np.array(points)
+def plot_points(ax, points, indices, **kw_args):
+    points = np.array(points)[indices]
     ax.plot(points[:, 0], points[:, 1], **kw_args)
 
 
@@ -187,8 +187,8 @@ fig, ax = plt.subplots()
 left, right = split_chains(points)
 fig.show()
 
-plot_points(ax, left, color="b")
-plot_points(ax, right, color="r")
+plot_points(ax, points, left, color="b")
+plot_points(ax, points, right, color="r")
 
 # %%
 
@@ -197,18 +197,17 @@ def check_monotone(points, axis=1):
     left, right = split_chains(points, axis=axis)
 
     for i in range(1, len(left)):
-        if left[i][axis] > left[i - 1][axis]:
+        if points[left[i]][axis] > points[left[i - 1]][axis]:
             return False
 
     for i in range(1, len(right)):
-        if right[i][axis] > right[i - 1][axis]:
+        if points[right[i]][axis] > points[right[i - 1]][axis]:
             return False
 
     return True
 
+
 # %%
-
-
 print(check_monotone(SETS["B"]))
 print(check_monotone(SETS["nonB"]))
 
@@ -219,35 +218,36 @@ class Chain(int, Flag):
     LEFT, RIGHT, BOTH = 0b01, 0b10, 0b11
 
 
-def chain_sort(left, right):
+def chain_sort(points, left, right):
     li, ri = 1, 1
-    points = [(left[0][0], left[0][1], Chain.BOTH)]
+    indices = [(0, Chain.BOTH)]
+
     while li < len(left) - 1 or ri < len(right) - 1:
         if li >= len(left) - 1:
-            points.append((right[ri][0], right[ri][1], Chain.RIGHT))
+            indices.append((right[ri], Chain.RIGHT))
             ri += 1
         elif ri >= len(right) - 1:
-            points.append((left[li][0], left[li][1], Chain.LEFT))
+            indices.append((left[li], Chain.LEFT))
             li += 1
-        elif left[li][1] >= right[ri][1]:
-            points.append((left[li][0], left[li][1], Chain.LEFT))
+        elif points[left[li]][1] >= points[right[ri]][1]:
+            indices.append((left[li], Chain.LEFT))
             li += 1
-        elif left[li][1] < right[ri][1]:
-            points.append((right[ri][0], right[ri][1], Chain.RIGHT))
+        elif points[left[li]][1] < points[right[ri]][1]:
+            indices.append((right[ri], Chain.RIGHT))
             ri += 1
         else:
             assert False
 
-    points.append((left[-1][0], left[-1][1], Chain.BOTH))
-    return points
+    indices.append((left[-1], Chain.BOTH))
+    return indices
 
 # %%
 
 
 def monotone_triangulate(points, axis=1):
     left, right = split_chains(points, axis=axis)
-    points = chain_sort(left, right)
-    queue = points[:2]
+    indices = chain_sort(points, left, right)
+    queue = indices[:2]
     triangles = []
 
     def _is(x, a):
@@ -256,22 +256,24 @@ def monotone_triangulate(points, axis=1):
     del left, right
 
     for i in range(2, len(points)):
-        p = points[i]
+        p = indices[i]
 
-        if (queue[-1][2] | p[2]) == Chain.BOTH:
+        if (queue[-1][1] | p[1]) == Chain.BOTH:
             while len(queue) >= 2:
                 a = queue.pop()
-                triangles.append((a[:2], queue[-1][:2], p[:2]))
+                triangles.append((a[0], queue[-1][0], p[0]))
 
-            queue = [points[i - 1], points[i]]
+            queue = [indices[i - 1], indices[i]]
         else:
-            skipped = []
             while len(queue) >= 2:
-                ori = orient(queue[-2], p, queue[-1])
-                if (_is(p[2], Chain.LEFT) and ori == Orient.CW) \
-                        or (_is(p[2], Chain.RIGHT) and ori == Orient.CCW):
+                ori = orient(points[queue[-2][0]],
+                             points[p[0]],
+                             points[queue[-1][0]])
 
-                    triangles.append((queue[-2][:2], queue[-1][:2], p[:2]))
+                if (_is(p[1], Chain.LEFT) and ori == Orient.CW) \
+                        or (_is(p[1], Chain.RIGHT) and ori == Orient.CCW):
+
+                    triangles.append((queue[-2][0], queue[-1][0], p[0]))
                     queue.pop()
                 else:
                     break
@@ -285,15 +287,15 @@ points = SETS["A"]
 fig, ax = plt.subplots()
 left, right = split_chains(points)
 
-plot_points(ax, left, color="b")
-plot_points(ax, right, color="r")
+plot_points(ax, points, left, color="b")
+plot_points(ax, points, right, color="r")
 
 triangles = monotone_triangulate(points)
 print(triangles)
 
 for a, b, c in triangles:
-    x = [a[0], b[0], c[0]]
-    y = [a[1], b[1], c[1]]
+    x = [points[a][0], points[b][0], points[c][0]]
+    y = [points[a][1], points[b][1], points[c][1]]
     ax.fill(x, y, alpha=0.3)
 
 # %%
@@ -332,7 +334,7 @@ def classify_points(points, axis=1):
         else:
             cl = Classification.REGULAR
 
-        result[i] = (points[i][0], points[i][1], cl)
+        result[i] = cl
 
     return result
 
@@ -348,10 +350,10 @@ CLASSIFICATION_COLORS = {
 }
 
 
-def plot_classification(ax, points):
+def plot_classification(ax, points, cl):
     x = [p[0] for p in points]
     y = [p[1] for p in points]
-    c = [CLASSIFICATION_COLORS[p[2]] for p in points]
+    c = [CLASSIFICATION_COLORS[p] for p in cl]
 
     sc1 = ax.scatter(x, y, color="black", marker="o", linewidth=3, zorder=2)
     sc2 = ax.scatter(x, y, c=c, marker="o", linewidth=1, zorder=3)
@@ -359,10 +361,12 @@ def plot_classification(ax, points):
     return sc1, sc2
 
 
-points = classify_points(SETS["W"])
+points = SETS["W"]
+cl = classify_points(SETS["W"])
+
 fig, ax = plt.subplots()
-plot_points(ax, points + [points[0]], color="b", marker="")
-plot_classification(ax, points)
+plot_points(ax, points, list(range(len(points))) + [0], color="b", marker="")
+plot_classification(ax, points, cl)
 fig.show()
 # %%
 
@@ -456,8 +460,9 @@ class Application:
 
         left, right = split_chains(self.points)
 
-        self.line_l.set_data(np.transpose(left))
-        self.line_r.set_data(np.transpose(right))
+        arr = np.array(self.points)
+        self.line_l.set_data(arr[left].T)
+        self.line_r.set_data(arr[right].T)
 
         self.fig.canvas.draw()
 
@@ -475,8 +480,8 @@ class Application:
 
         triangles = monotone_triangulate(self.points)
         for a, b, c in triangles:
-            x = [a[0], b[0], c[0]]
-            y = [a[1], b[1], c[1]]
+            x = [self.points[a][0], self.points[b][0], self.points[c][0]]
+            y = [self.points[a][1], self.points[b][1], self.points[c][1]]
             tri, = self.ax.fill(x, y, alpha=0.3)
             self.tri_axes.append(tri)
 
@@ -522,8 +527,8 @@ class Application:
 
     def classify(self, event):
         self.clear_classify()
-        points = classify_points(self.points)
-        self.class_axes = plot_classification(self.ax, points)
+        cl = classify_points(self.points)
+        self.class_axes = plot_classification(self.ax, self.points, cl)
 
     def clear_classify(self):
         if self.class_axes:
@@ -537,9 +542,9 @@ app = Application()
 # %%
 
 
-def _set_data(ax, points):
-    x = [p[0] for p in points]
-    y = [p[1] for p in points]
+def _set_data(ax, points, indices):
+    x = [points[i][0] for i in indices]
+    y = [points[i][1] for i in indices]
     ax.set_data(x, y)
 
 
@@ -560,73 +565,71 @@ def _frame_phase1(frame, points, black, blue, red):
 
     i = p_max
     while i != p_min and frame > 0:
-        chain_a.append(points[i])
+        chain_a.append(i)
         i += 1
         i %= len(points)
         frame -= 1
 
     if frame > 0:
         frame -= 1
-        chain_a.append(points[i])
+        chain_a.append(i)
 
     while i != p_max and frame > 0:
-        chain_b.append(points[i])
+        chain_b.append(i)
         i += 1
         i %= len(points)
         frame -= 1
 
     if frame > 0:
         frame -= 1
-        chain_b.append(points[i])
+        chain_b.append(i)
 
-    _set_data(blue, chain_a)
-    _set_data(red, chain_b)
+    _set_data(blue, points, chain_a)
+    _set_data(red, points, chain_b)
 
     chain_b.reverse()
     return frame, chain_a, chain_b
 
 
-def _frame_phase2(frame, left, right, black):
+def _frame_phase2(frame, points, left, right, black):
     li, ri = 1, 1
-    points = [(left[0][0], left[0][1], Chain.BOTH)]
-
-    # _set_data(black, points[-1])
+    indices = [(left[0], Chain.BOTH)]
 
     while (li < len(left) - 1 or ri < len(right) - 1) and frame > 0:
         frame -= 1
 
         if li >= len(left) - 1:
-            points.append((right[ri][0], right[ri][1], Chain.RIGHT))
+            indices.append((right[ri], Chain.RIGHT))
             ri += 1
         elif ri >= len(right) - 1:
-            points.append((left[li][0], left[li][1], Chain.LEFT))
+            indices.append((left[li], Chain.LEFT))
             li += 1
-        elif left[li][1] >= right[ri][1]:
-            points.append((left[li][0], left[li][1], Chain.LEFT))
+        elif points[left[li]][1] >= points[right[ri]][1]:
+            indices.append((left[li], Chain.LEFT))
             li += 1
-        elif left[li][1] < right[ri][1]:
-            points.append((right[ri][0], right[ri][1], Chain.RIGHT))
+        elif points[left[li]][1] < points[right[ri]][1]:
+            indices.append((right[ri], Chain.RIGHT))
             ri += 1
         else:
             assert False
 
     if frame > 0:
-        points.append((left[-1][0], left[-1][1], Chain.BOTH))
+        indices.append((left[-1], Chain.LEFT))
         frame -= 2
 
     black.set_linestyle("solid")
     black.set_marker("")
     black.set_data(
         [-110, 110],
-        [points[-1][1], points[-1][1]]
+        [points[indices[-1][0]][1], points[indices[-1][0]][1]]
     )
 
-    return frame, points
+    return frame, indices
 
 
-def _frame_phase3(frame, points, black, green, ax, polygons):
+def _frame_phase3(frame, points, indices, black, green, ax, polygons):
     axis = 1
-    queue = points[:2]
+    queue = indices[:2]
     triangles = []
 
     def _stop(i):
@@ -634,17 +637,15 @@ def _frame_phase3(frame, points, black, green, ax, polygons):
 
         black.set_linestyle("none")
         black.set_marker("o")
-        _set_data(black, queue)
 
-        _set_data(green, [points[i]])
+        _set_data(black, points, [q[0] for q in queue])
+        _set_data(green, points, [i])
 
         for a, b, c in triangles[len(polygons):]:
-            polygons.append(
-                ax.fill(
-                    [a[0], b[0], c[0]],
-                    [a[1], b[1], c[1]]
-                )[0]
-            )
+            polygons.append(ax.fill(
+                [points[a][0], points[b][0], points[c][0]],
+                [points[a][1], points[b][1], points[c][1]]
+            )[0])
 
         return frame
 
@@ -660,30 +661,32 @@ def _frame_phase3(frame, points, black, green, ax, polygons):
             return _stop(i)
         frame -= 1
 
-        p = points[i]
+        p = indices[i]
 
-        if (queue[-1][2] | p[2]) == Chain.BOTH:
+        if (queue[-1][1] | p[1]) == Chain.BOTH:
             while len(queue) >= 2:
                 if frame < 0:
                     return _stop(i)
                 frame -= 1
 
                 a = queue.pop()
-                triangles.append((a[:2], queue[-1][:2], p[:2]))
+                triangles.append((a[0], queue[-1][0], p[0]))
 
-            queue = [points[i - 1], points[i]]
+            queue = [indices[i - 1], indices[i]]
         else:
-            skipped = []
             while len(queue) >= 2:
                 if frame < 0:
                     return _stop(i)
                 frame -= 1
 
-                ori = orient(queue[-2], p, queue[-1])
-                if (_is(p[2], Chain.LEFT) and ori == Orient.CW) \
-                        or (_is(p[2], Chain.RIGHT) and ori == Orient.CCW):
+                ori = orient(points[queue[-2][0]],
+                             points[p[0]],
+                             points[queue[-1][0]])
 
-                    triangles.append((queue[-2][:2], queue[-1][:2], p[:2]))
+                if (_is(p[1], Chain.LEFT) and ori == Orient.CW) \
+                        or (_is(p[1], Chain.RIGHT) and ori == Orient.CCW):
+
+                    triangles.append((queue[-2][0], queue[-1][0], p[0]))
                     queue.pop()
                 else:
                     break
@@ -700,10 +703,11 @@ def _frame(frame, points, black, blue, red, green, ax, polygons):
 
     frame, left, right = _frame_phase1(frame, points, black, blue, red)
     if frame > 0:
-        frame, points = _frame_phase2(frame, left, right, black)
+        frame, indices = _frame_phase2(frame, points, left, right, black)
 
     if frame > 0:
-        frame = _frame_phase3(frame, points, black, green, ax, polygons)
+        frame = _frame_phase3(frame, points, indices,
+                              black, green, ax, polygons)
 
     if frame > 0:
         black.set_data([], [])
