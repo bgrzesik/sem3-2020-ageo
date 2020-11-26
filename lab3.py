@@ -1,3 +1,5 @@
+# %% [markdown]
+# ### Importy
 # %%
 from enum import Enum, Flag
 
@@ -15,6 +17,8 @@ sns_style = {"edgecolor": "none", "s": 1}
 plt.rcParams["animation.html"] = "jshtml"
 
 SAVE_FILES = True
+# %% [markdown]
+# ### Implementacja wyznacznika oraz funkcji orientacji
 # %%
 EPSILON = 1e-9
 
@@ -44,6 +48,8 @@ def orient(a, b, c):
         return Orient.CW
 
 
+# %% [markdown]
+# ### Zbiory testowe
 # %%
 SETS = {
     "A": [[0.0, 100.0],
@@ -149,6 +155,11 @@ SETS = {
            [-51.078385899814464, -74.98840445269015],
            [75.45222634508352, -0.4058441558441359]]
 }
+# %% [markdown]
+# ### Funkcja rozdzielania punktów na dwa łańcuchy
+# Funkcja zwraca dwie listy  (przykładowo `([0, 4, ...], [8, 7, ...])`),
+# które zawierają kolejne indeksy punktów z tablicy wejściowej. Indeksy punktów
+# są w kolejności od najwyższego do najmniejszego.
 # %%
 
 
@@ -176,6 +187,10 @@ def split_chains(points, axis=1):
     chain_b.reverse()
     return chain_a, chain_b
 
+# %% [markdown]
+# ### Testowe uruchomienie funkcji oraz funkcja wizualizacji
+# %%
+
 
 def plot_points(ax, points, indices, **kw_args):
     points = np.array(points)[indices]
@@ -190,6 +205,8 @@ fig.show()
 plot_points(ax, points, left, color="b")
 plot_points(ax, points, right, color="r")
 
+# %% [markdown]
+# ### Funkcja sprawdzająca monotoniczność
 # %%
 
 
@@ -207,10 +224,20 @@ def check_monotone(points, axis=1):
     return True
 
 
+# %% [markdown]
+# ### Testowe uruchomienie funkcji i wizualizacja
 # %%
 print(check_monotone(SETS["B"]))
 print(check_monotone(SETS["nonB"]))
-
+# %% [markdown]
+# ### Funkcja sortująca punkty wg Y w czasie $ O(n) $
+# Zdefniowany został też tym enumeryczny `Chain`, umożliwiający identyfikacje na którym
+# łacuchu leży dany punkt. Wartości zostały przypisane jako maska bitowa `0b01`
+# oznacza że punkt leży na lewym łacuchu, a `0b10` że punkt leży na prawym łacychu.
+# Alternatywa tych flag `0b11 (0b01 | 0b10)`, oznacza że punkt leży na obu
+# łacuchach - punkty najwyżej lub najniżej.
+# Funkcja wraca listę krotek, gdzie pierwsza wartość to indeks w tablicy
+# wejściowych punktów, a druga to maska bitowa typu `Chain`.
 # %%
 
 
@@ -241,6 +268,9 @@ def chain_sort(points, left, right):
     indices.append((left[-1], Chain.BOTH))
     return indices
 
+# %% [markdown]
+# ### Implementacja triangulacji wielokątów monotonicznych.
+# Funkcja zwaca listę krotek indeksów punktów w tabeli wejściowej.
 # %%
 
 
@@ -282,6 +312,8 @@ def monotone_triangulate(points, axis=1):
     return triangles
 
 
+# %% [markdown]
+# ### Testowe uruchomienie oraz wizualizacja
 # %%
 points = SETS["A"]
 fig, ax = plt.subplots()
@@ -298,6 +330,12 @@ for a, b, c in triangles:
     y = [points[a][1], points[b][1], points[c][1]]
     ax.fill(x, y, alpha=0.3)
 
+# %% [markdown]
+# ### Funkcja klasyfikacji punktów
+# Zdefiniowany został pomocniczy typ enumeryczny `Classification`, który służy
+# przedstawia klasyfikację punktu.
+# Funkcja zwraca tablicę wartości enumerycznych `Classification`, gdzie wartość
+# dotyczy punktu pod takim samym indeksem w tablicy wejściowej.
 # %%
 
 
@@ -338,6 +376,9 @@ def classify_points(points, axis=1):
 
     return result
 
+
+# %% [markdown]
+# ### Testowe uruchomienie
 # %%
 
 
@@ -368,6 +409,31 @@ fig, ax = plt.subplots()
 plot_points(ax, points, list(range(len(points))) + [0], color="b", marker="")
 plot_classification(ax, points, cl)
 fig.show()
+# %% [markdown]
+# ### Implementacja programu wizualizacji oraz wprowadzania punktów i testowania wybranych funkcji
+# Zdefniniowana została klasa przchowująca zbiorczo funkcjonalonść. Użeteczne
+# podczas testowania mogą być funkcje obiektu:
+# * `app.set_points(...)` - funkcja ustawiająca punkty na podane punkty
+# * `app.check_monotone(None)` - funkcja sprawdzająca monotoczność wielokąta
+# * `app.triangulate(None)` - funkcja dokonująca triangulacji
+# * `app.classify(None)` - funkcja dokonująca klasyfikacji punktów
+# * `app.set_circle(None)` - funkcja ustawiająca zbiór punktów na zbiór mający
+#                            imitować okrąg
+# * `app.set_harmonia(None)` - funkcja zbiór punktów na zbiór przypominający
+#                              harmonijkę
+# * `app.reset(None)` - usuwa wszystkie punkty
+#
+# Punkty można wprowadzać za pomocą myszki, klikając na wybrany punkt na
+# płaszczyźnie na którym chcemy dodać punkt. Po prawej stronie znajduje się lista
+# przycisków:
+# * **Sprawdź monotoczność** - uruchomienie sprawdzania Y-mononotoczniości oraz
+#                              wyświetlenie wyniku nad wizualizacją
+# * **Trianguluj** - uruchomienie algorytmu triangulacji oraz pokazanie podziału
+# * **Reset** - usunięcie wszystkich punktów i wyczyszczenie wizualizacji
+# * **Koło** - zresetowanie wizualizacji i dodanie okręgu
+# * **Harmonijka** - zresetowanie wizualizacji i dodanie "harmonijki"
+# * **Zklasyfikuj** - uruchomienie klasyfikacji punktów i naniesienie klas na
+#                     wizualizacje
 # %%
 
 
@@ -539,6 +605,12 @@ class Application:
 
 app = Application()
 
+# %% [markdown]
+# ### Animacja algorytmu triangulacji
+# Wykonanie animacji zostało podzielone na trzy fazy, w pierwszej dokonywany jest
+# podział punktów na łańcuchy lewy i prawy. W drugiej punkty są sortowane na
+# podstawie łańcuchów od najwyższego do najniżeszego. W trzeciej fazie
+# przedstawiony jest algorytm triangulacji.
 # %%
 
 
@@ -745,6 +817,8 @@ def animate(points):
 
 ani = animate(SETS["D"])
 ani
+# %% [markdown]
+# ### Zapisanie animacji do pliku gif
 # %%
 if SAVE_FILES:
     ani.save("Lab3Raport/triangulate.gif")
@@ -752,4 +826,5 @@ if SAVE_FILES:
 # %% [markdown]
 # ### Tą komórką można uruchomić animacje z widoku dodawania punktów
 # %%
-display(animate(app.points))
+if len(app.points) >= 3:
+    display(animate(app.points))
