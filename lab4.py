@@ -284,8 +284,6 @@ def find_intersections(segments: list):
     while queue:
         cursor, i, j, event = queue.pop()
 
-        print(cursor, i, j, event)
-
         above = None
         below = None
 
@@ -341,7 +339,7 @@ def find_intersections(segments: list):
             below = nodes[lower].pred()
 
             if above is not None:
-                update_events(curosr, above.value, upper)
+                update_events(cursor, above.value, upper)
 
             if below is not None:
                 update_events(cursor, lower, below.value)
