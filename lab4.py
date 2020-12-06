@@ -258,10 +258,62 @@ class Event(int, Enum):
     INTERSECTION = 1
     END = 2
 
+# %%
+
+
+def any_intersects(segments: list):
+    queue = Heap()
+    nodes = [None] * len(segments)
+    sweep = Tree()
+
+    for i, seg in enumerate(segments):
+        start, end = seg
+
+        if start[0] > end[0]:
+            start, end = end, start
+            segments[i] = start, end
+
+        queue.insert((start[0], i, None, Event.START))
+        queue.insert((end[0], i, None, Event.END))
+
+    def check(i, j):
+        return i != j and does_intersecs(segments[i], segments[j])
+
+    while queue:
+        cursor, i, j, event = queue.pop()
+
+        if event == Event.START:
+            start, end = segments[i]
+            nodes[i] = sweep.add((start[1], 0), i)
+
+            above = nodes[i].succ()
+            below = nodes[i].pred()
+
+            if above is not None and check(above.value, i):
+                return True
+
+            if below is not None and check(i, below.value):
+                return True
+
+        elif event == Event.END:
+            above = nodes[i].succ()
+            below = nodes[i].pred()
+
+            sweep.remove_node(nodes[i])
+            nodes[i] = None
+
+            if above is not None and below is not None and \
+                    check(above.value, below.value):
+                return True
+
+    return False
+
+
+# %%
+
 
 def find_intersections(segments: list):
     queue = Heap()
-    tree = Tree()
     result = []
     nodes = [None] * len(segments)
     sweep = Tree()
@@ -289,9 +341,6 @@ def find_intersections(segments: list):
 
     while queue:
         cursor, i, j, event = queue.pop()
-
-        above = None
-        below = None
 
         if event == Event.START:
             start, end = segments[i]
@@ -322,12 +371,8 @@ def find_intersections(segments: list):
 
                 continue
 
-            if nodes[i].key[0] > nodes[j].key[0]:
-                upper = j
-                lower = i
-            else:
-                upper = i
-                lower = j
+            upper, lower = \
+                (j, i) if nodes[i].key[0] > nodes[j].key[0] else (i, j)
 
             sweep.remove_node(nodes[i])
             sweep.remove_node(nodes[j])
