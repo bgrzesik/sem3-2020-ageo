@@ -2,6 +2,7 @@
 # %% [markdown]
 # ### Importy
 # %%
+from sortedcollections import SortedDict
 from enum import Enum, Flag
 from queue import PriorityQueue
 from collections import OrderedDict
@@ -267,13 +268,18 @@ def find_intersections(segments: list):
 
     for i, seg in enumerate(segments):
         start, end = seg
+
+        if start[0] > end[0]:
+            start, end = end, start
+            segments[i] = start, end
+
         queue.insert((start[0], i, None, Event.START))
         queue.insert((end[0], i, None, Event.END))
 
     def update_events(cursor, i, j):
         nonlocal nodes, sweep, segments
 
-        if does_intersecs(segments[i], segments[j]):
+        if i != j and does_intersecs(segments[i], segments[j]):
             x, _ = line_intersection(segments[i], segments[j])
 
             if cursor > x:
@@ -289,7 +295,7 @@ def find_intersections(segments: list):
 
         if event == Event.START:
             start, end = segments[i]
-            nodes[i] = sweep.add((start[0], 0), i)
+            nodes[i] = sweep.add((start[1], 0), i)
 
             above = nodes[i].succ()
             below = nodes[i].pred()
@@ -316,24 +322,20 @@ def find_intersections(segments: list):
 
                 continue
 
+            if nodes[i].key[0] > nodes[j].key[0]:
+                upper = j
+                lower = i
+            else:
+                upper = i
+                lower = j
+
             sweep.remove_node(nodes[i])
             sweep.remove_node(nodes[j])
 
-            # above
-            # upper
-            # lower
-            # below
+            _, y = line_intersection(segments[i], segments[j])
 
-            if segments[i][0][1] < segments[j][0][1]:
-                upper = i
-                lower = j
-            else:
-                upper = j
-                lower = i
-
-            x, _ = line_intersection(segments[i], segments[j])
-            nodes[upper] = sweep.add((x, 1), upper)
-            nodes[lower] = sweep.add((x, -1), lower)
+            nodes[upper] = sweep.add((y, 1), upper)
+            nodes[lower] = sweep.add((y, -1), lower)
 
             above = nodes[upper].succ()
             below = nodes[lower].pred()
@@ -349,26 +351,156 @@ def find_intersections(segments: list):
     return result
 
 
-segments = [
-    ((0, 0), (20, 20)),
-    ((2, 5), (8, 5)),
-    ((5, 10), (17, 15)),
-    ((5, 15), (15, 5))
-]
+# segments = [((0, 0), (20, 20)),
+#             ((2, 5), (8, 5)),
+#             ((5, 10), (17, 15)),
+#             ((5, 15), (15, 5)), ]
+
+segments = [((-75, -75), (75, 75)),
+            ((-75, 75), (25, -25)),
+            ((-75, 50), (75, 50)), ]
+
+# segments = [((-100, 0), (100, 0)),  # 0 -
+#             ((-75, 25), (50, -50)),  # 1 \
+#             ((75, 25), (-50, -50)), ]  # 2 /
+
+# segments = [((-75, 0), (50, 75)),
+#             ((-50, 75), (75, 0)),
+#             ((-50, 25), (25, -75))]
+
+# segments = [((-75, -75), (75, 75)),
+#             ((-25, 74), (50, -99)),
+#             ((-75, -25), (75, -75))]
+
 print(find_intersections(segments))
 
 
 # %%
 
+def draw_segments(ax, segments):
+    axes = []
+    for start, end in segments:
+        axes.extend(
+            ax.plot([start[0], end[0]], [start[1], end[1]],
+                    marker="o",
+                    zorder=1,
+                    markersize=4,
+                    color="black"))
+
+    return axes
+
+
+def draw_intersections(ax, segments, intersections=None):
+    if intersections is None:
+        intersections = find_intersections(segments)
+
+    axes = []
+
+    for seg_a, seg_b in intersections:
+        x, y = line_intersection(segments[seg_a], segments[seg_b])
+        axes.append(
+            ax.scatter(x, y,
+                       color="red",
+                       zorder=2))
+
+    return axes
+
+
+def draw_texts(ax, segments):
+    axes = []
+
+    for i, seg in enumerate(segments):
+        start, end = seg
+        # mx = (start[0] + end[0]) / 2.0
+        # my = (start[1] + end[1]) / 2.0
+
+        mx = start[0] - 4
+        my = start[1] + 2
+        axes.append(ax.text(mx, my, str(i)))
+
+    return axes
+
+
 fig, ax = plt.subplots()
 
-for start, end in segments:
-    ax.plot([start[0], end[0]], [start[1], end[1]])
+ax.set_xlim(-100, 100)
+ax.set_ylim(-100, 100)
 
-for seg_a, seg_b in find_intersections(segments):
-    x, y = line_intersection(segments[seg_a], segments[seg_b])
-    ax.scatter(x, y)
+draw_segments(ax, segments)
+draw_intersections(ax, segments)
+draw_texts(ax, segments)
 
 fig.show()
+
+# %%
+
+
+class Application(object):
+    def __init__(self):
+        self.fig = plt.figure(figsize=(9, 7))
+
+        SPECS = {"width_ratios": [7, 2],
+                 "hspace": 0.0,
+                 "wspace": 0.0}
+
+        gs1 = plt.GridSpec(1, 2, **SPECS)
+        gs1.tight_layout(self.fig)
+        gs2 = plt.GridSpec(10, 2, **SPECS)
+
+        self.ax = self.fig.add_subplot(gs1[0])
+
+        self.ax.set_aspect("equal")
+        self.ax.set_xlim(-100, 100)
+        self.ax.set_ylim(-100, 100)
+
+        self.segments = []
+        self.actors = []
+        self.c_points = None
+
+        self.fig.canvas.mpl_connect("button_press_event", self.add_segment)
+
+        self.draw()
+        self.fig.show()
+
+    def draw(self):
+        self.clear_actors()
+        self.actors.extend(draw_segments(self.ax, self.segments))
+        self.actors.extend(draw_intersections(self.ax, self.segments))
+        self.actors.extend(draw_texts(self.ax, self.segments))
+
+    def add_segment(self, event=None):
+        if event.inaxes not in {actor.axes for actor in self.actors} \
+                and event.inaxes != self.ax:
+            return
+
+        mx, my = event.xdata, event.ydata
+        if not self.c_points:
+            self.c_points = (mx, my)
+            self.actors.append(
+                self.ax.scatter([mx], [my])
+            )
+            return
+
+        self.segments.append((self.c_points, (mx, my)))
+        self.c_points = None
+
+        self.draw()
+
+    def clear(self, event=None):
+        self.set_segments([])
+
+    def clear_actors(self):
+        for actor in self.actors:
+            actor.remove()
+
+        self.actors.clear()
+
+    def set_segments(self, segments):
+        self.clear_actors()
+        self.segments = segments
+        self.draw()
+
+
+app = Application()
 
 # %%
