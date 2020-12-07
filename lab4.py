@@ -56,8 +56,12 @@ def does_intersecs(l1, l2):
     a, b = l1
     c, d = l2
 
-    return orient(a, b, c) != orient(a, b, d) and \
-        orient(a, b, c) != orient(a, b, d)
+    o = [orient(a, b, c),
+         orient(a, b, d),
+         orient(c, d, a),
+         orient(c, d, b), ]
+
+    return o[0] != o[1] and o[2] != o[3]
 
 
 def get_linfun(p1, p2):
@@ -504,14 +508,26 @@ class Application(object):
 
         self.fig.canvas.mpl_connect("button_press_event", self.add_segment)
 
+        btn_ax = self.fig.add_subplot(gs2[1])
+        self.reset_btn = wig.Button(btn_ax, "Reset")
+        self.reset_btn.on_clicked(self.clear)
+
+        btn_ax = self.fig.add_subplot(gs2[3])
+        self.n_input = wig.TextBox(btn_ax, "N")
+        self.n_input.on_submit(self.gen)
+
+        btn_ax = self.fig.add_subplot(gs2[5])
+        self.reset_btn = wig.Button(btn_ax, "Generuj")
+        self.reset_btn.on_clicked(self.gen)
+
         self.draw()
         self.fig.show()
 
     def draw(self):
         self.clear_actors()
         self.actors.extend(draw_segments(self.ax, self.segments))
-        self.actors.extend(draw_intersections(self.ax, self.segments))
         self.actors.extend(draw_texts(self.ax, self.segments))
+        self.actors.extend(draw_intersections(self.ax, self.segments))
 
     def add_segment(self, event=None):
         if event.inaxes not in {actor.axes for actor in self.actors} \
@@ -544,6 +560,26 @@ class Application(object):
         self.clear_actors()
         self.segments = segments
         self.draw()
+
+    def gen(self, event=None):
+        n = int(self.n_input.text)
+
+        segments = []
+
+        while n > 0:
+            x1 = np.random.uniform(-100, 100)
+            y1 = np.random.uniform(-100, 100)
+            x2 = np.random.uniform(-100, 100)
+            y2 = np.random.uniform(-100, 100)
+
+            if abs(x1 - x2) < EPSILON:
+                continue
+
+            segments.append(((x1, y1), (x2, y2)))
+
+            n -= 1
+
+        self.set_segments(segments)
 
 
 app = Application()
@@ -726,6 +762,10 @@ def animate(segments):
     plt.close(fig)
     return ani
 
+
+segments = [((-75, -75), (75, 75)),
+            ((-75, 75), (25, -25)),
+            ((-75, 50), (75, 50)), ]
 
 ani = animate(segments)
 display(ani)
