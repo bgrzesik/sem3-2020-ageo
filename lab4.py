@@ -2,7 +2,7 @@
 # %% [markdown]
 # ### Importy
 # %%
-from sortedcollections import SortedDict
+import random
 from enum import Enum, Flag
 from queue import PriorityQueue
 from collections import OrderedDict
@@ -11,8 +11,6 @@ import matplotlib
 import matplotlib.widgets as wig
 import matplotlib.animation as anim
 import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
 import seaborn as sns
 
 %matplotlib widget
@@ -578,8 +576,10 @@ class Application(object):
         self.reset_btn = wig.Button(btn_ax, "Reset")
         self.reset_btn.on_clicked(self.clear)
 
+        initial = str(gen_n) if gen_n else ""
+
         btn_ax = self.fig.add_subplot(gs2[3])
-        self.n_input = wig.TextBox(btn_ax, "N", initial=str(gen_n))
+        self.n_input = wig.TextBox(btn_ax, "N", initial=initial)
         self.n_input.on_submit(self.gen)
 
         btn_ax = self.fig.add_subplot(gs2[5])
@@ -640,10 +640,10 @@ class Application(object):
         segments = []
 
         while n > 0:
-            x1 = np.random.uniform(-100, 100)
-            y1 = np.random.uniform(-100, 100)
-            x2 = np.random.uniform(-100, 100)
-            y2 = np.random.uniform(-100, 100)
+            x1 = random.uniform(-100, 100)
+            y1 = random.uniform(-100, 100)
+            x2 = random.uniform(-100, 100)
+            y2 = random.uniform(-100, 100)
 
             if abs(x1 - x2) < EPSILON:
                 continue
