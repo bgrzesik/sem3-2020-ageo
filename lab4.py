@@ -280,7 +280,7 @@ def any_intersects(segments: list):
         return i != j and does_intersecs(segments[i], segments[j])
 
     while queue:
-        cursor, i, j, event = queue.pop()
+        broom, i, j, event = queue.pop()
 
         if event == Event.START:
             start, end = segments[i]
@@ -328,19 +328,19 @@ def find_intersections(segments: list):
         queue.insert((start[0], i, None, Event.START))
         queue.insert((end[0], i, None, Event.END))
 
-    def update_events(cursor, i, j):
+    def update_events(broom, i, j):
         nonlocal nodes, sweep, segments
 
         if i != j and does_intersecs(segments[i], segments[j]):
             x, _ = line_intersection(segments[i], segments[j])
 
-            if cursor > x:
+            if broom > x:
                 return
 
             queue.insert((x, i, j, Event.INTERSECTION))
 
     while queue:
-        cursor, i, j, event = queue.pop()
+        broom, i, j, event = queue.pop()
 
         if event == Event.START:
             start, end = segments[i]
@@ -350,10 +350,10 @@ def find_intersections(segments: list):
             below = nodes[i].pred()
 
             if above is not None:
-                update_events(cursor, above.value, i)
+                update_events(broom, above.value, i)
 
             if below is not None:
-                update_events(cursor, i, below.value)
+                update_events(broom, i, below.value)
 
         elif event == Event.END:
             above = nodes[i].succ()
@@ -363,7 +363,7 @@ def find_intersections(segments: list):
             nodes[i] = None
 
             if above is not None and below is not None:
-                update_events(cursor, above.value, below.value)
+                update_events(broom, above.value, below.value)
 
         elif event == Event.INTERSECTION:
             if len(result) > 0 and \
@@ -386,10 +386,10 @@ def find_intersections(segments: list):
             below = nodes[lower].pred()
 
             if above is not None:
-                update_events(cursor, above.value, upper)
+                update_events(broom, above.value, upper)
 
             if below is not None:
-                update_events(cursor, lower, below.value)
+                update_events(broom, lower, below.value)
 
             result.append((upper, lower))
 
@@ -549,3 +549,186 @@ class Application(object):
 app = Application()
 
 # %%
+
+
+class StopAnimation(Exception):
+    def __init__(self, frame):
+        self.frame = frame
+
+    @staticmethod
+    def check(frame, draw, segments, args):
+        if frame <= 0:
+            draw(segments, *args)
+            raise StopAnimation(frame)
+
+
+def _find(frame, segments, args):
+    queue = Heap()
+    result = []
+    nodes = [None] * len(segments)
+    sweep = Tree()
+
+    for i, seg in enumerate(segments):
+        start, end = seg
+
+        if start[0] > end[0]:
+            start, end = end, start
+            segments[i] = start, end
+
+        queue.insert((start[0], i, None, Event.START))
+        queue.insert((end[0], i, None, Event.END))
+
+    def draw(segments, ax_broom, ax_cross, ax_start, ax_inter, ax_inter2, ax_end, *args):
+        ax_start.set_data([], [])
+        ax_inter.set_data([], [])
+        ax_inter2.set_data([], [])
+        ax_end.set_data([], [])
+
+        intersections = [line_intersection(segments[a], segments[b])
+                         for a, b in result]
+
+        ax_cross.set_data(
+            [p[0] for p in intersections],
+            [p[1] for p in intersections]
+        )
+
+        if not queue:
+            ax_broom.set_data([100, 100], [-100, 100])
+            return
+
+        broom, i, j, event = queue.peek()
+        ax_broom.set_data([broom, broom], [-100, 100])
+
+        if event == Event.START:
+            start, end = segments[i]
+            ax_start.set_data([start[0], end[0]], [start[1], end[1]])
+
+        elif event == Event.END:
+            start, end = segments[i]
+            ax_end.set_data([start[0], end[0]], [start[1], end[1]])
+
+        elif event == Event.INTERSECTION:
+            ax_inter.set_data([segments[i][0][0],
+                               segments[i][1][0], ],
+                              [segments[i][0][1],
+                               segments[i][1][1], ])
+            ax_inter2.set_data([segments[j][0][0],
+                                segments[j][1][0], ],
+                               [segments[j][0][1],
+                                segments[j][1][1], ])
+
+    def update_events(broom, i, j):
+        nonlocal nodes, sweep, segments
+
+        if i != j and does_intersecs(segments[i], segments[j]):
+            x, _ = line_intersection(segments[i], segments[j])
+
+            if broom > x:
+                return
+
+            queue.insert((x, i, j, Event.INTERSECTION))
+
+    while queue:
+        frame -= 1
+        StopAnimation.check(frame, draw, segments, args)
+
+        broom, i, j, event = queue.pop()
+
+        if event == Event.START:
+            start, end = segments[i]
+            nodes[i] = sweep.add((start[1], 0), i)
+
+            above = nodes[i].succ()
+            below = nodes[i].pred()
+
+            if above is not None:
+                update_events(broom, above.value, i)
+
+            if below is not None:
+                update_events(broom, i, below.value)
+
+        elif event == Event.END:
+            above = nodes[i].succ()
+            below = nodes[i].pred()
+
+            sweep.remove_node(nodes[i])
+            nodes[i] = None
+
+            if above is not None and below is not None:
+                update_events(broom, above.value, below.value)
+
+        elif event == Event.INTERSECTION:
+            if len(result) > 0 and \
+                    (result[-1] == (i, j) or result[-1] == (j, i)):
+
+                continue
+
+            upper, lower = \
+                (j, i) if nodes[i].key[0] > nodes[j].key[0] else (i, j)
+
+            sweep.remove_node(nodes[i])
+            sweep.remove_node(nodes[j])
+
+            _, y = line_intersection(segments[i], segments[j])
+
+            nodes[upper] = sweep.add((y, 1), upper)
+            nodes[lower] = sweep.add((y, -1), lower)
+
+            above = nodes[upper].succ()
+            below = nodes[lower].pred()
+
+            if above is not None:
+                update_events(broom, above.value, upper)
+
+            if below is not None:
+                update_events(broom, lower, below.value)
+
+            result.append((upper, lower))
+
+        frame -= 1
+        StopAnimation.check(frame, draw, segments, args)
+
+    return frame
+
+
+def _frame(frame, segments, *args):
+    try:
+        frame = _find(frame, segments, args)
+        raise StopAnimation(frame)
+    except StopAnimation as stop:
+        return stop.frame
+
+
+def animate(segments):
+    fig, ax = plt.subplots(figsize=(7, 7))
+    ax.set_aspect("equal")
+    ax.set_xlim(-100, 100)
+    ax.set_ylim(-100, 100)
+
+    draw_segments(ax, segments)
+
+    args = (
+        ax.plot([], [], color="blue", zorder=5)[0],
+        ax.plot([], [], color="red", marker="o",
+                linestyle="none", zorder=4)[0],
+        ax.plot([], [], color="green", linewidth=3, zorder=3)[0],
+        ax.plot([], [], color="cyan", marker="o", zorder=3)[0],
+        ax.plot([], [], color="cyan", marker="o", zorder=3)[0],
+        ax.plot([], [], color="red", linewidth=3, zorder=3)[0],
+    )
+
+    max_frames = 10000
+    frames = max_frames - \
+        _frame(max_frames, segments, *args) + 2
+
+    ani = anim.FuncAnimation(fig, _frame, frames=frames,
+                             fargs=(segments, *args))
+    plt.close(fig)
+    return ani
+
+
+ani = animate(segments)
+display(ani)
+# %%
+if SAVE_FILES:
+    ani.save("Lab4Raport/ani.gif")
