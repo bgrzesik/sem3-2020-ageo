@@ -51,6 +51,11 @@ def orient(a, b, c):
     elif d < 0:
         return Orient.CW
 
+# %% [markdown]
+# ### Funkcje sprawdzające przecięcie odcinków
+
+# %%
+
 
 def does_intersecs(l1, l2):
     a, b = l1
@@ -78,6 +83,9 @@ def line_intersection(l1, l2):
     y = a1 * x + b1
 
     return x, y
+
+# %% [markdown]
+# ### Implementacja kopca oraz drzewa BST
 
 # %%
 
@@ -254,6 +262,9 @@ class Tree(object):
 
         return f"Tree[{to_str(self.root)}]"
 
+# %% [markdown]
+# ### Typ rodzaju wydarzenia
+
 # %%
 
 
@@ -261,6 +272,9 @@ class Event(int, Enum):
     START = 0
     INTERSECTION = 1
     END = 2
+
+# %% [markdown]
+# ### Funkcja sprawdzająca czy istnieje jakiekolwiek przecięcie
 
 # %%
 
@@ -312,6 +326,9 @@ def any_intersects(segments: list):
 
     return False
 
+# %% [markdown]
+# ### Zbiory testowe
+
 # %%
 
 
@@ -326,6 +343,7 @@ SETS = {
            (50.890750920396584, 55.1283912446371)),
           ((-74.15563126884275, -10.548788718257157),
            (-37.42093739129173, -10.177731204342507))],
+
     "K": [((-74.15563126884275, -86.53125087373218),
            (-26.289211973852034, 63.13985569478302)),
           ((-46.69737523915816, -86.90230838764683),
@@ -343,8 +361,34 @@ SETS = {
           ((-94.93485204806353, -11.5776330629715),
            (66.47516650481217, -60.5572248997062)),
           ((-94.19273702023423, -38.66483157874144),
-           (68.33045407438544, -89.49971098504943))]
+           (68.33045407438544, -89.49971098504943))],
+
+
+    "A": [((0, 0), (20, 20)),
+          ((2, 5), (8, 5)),
+          ((5, 10), (17, 15)),
+          ((5, 15), (15, 5)), ],
+
+    "B": [((-75, -75), (75, 75)),
+          ((-75, 75), (25, -25)),
+          ((-75, 50), (75, 50)), ],
+
+    "C": [((-100, 0), (100, 0)),  # 0 -
+          ((-75, 25), (50, -50)),  # 1 \
+          ((75, 25), (-50, -50)), ],  # 2 /
+
+    "D": [((-75, 0), (50, 75)),
+          ((-50, 75), (75, 0)),
+          ((-50, 25), (25, -75))],
+
+    "E": [((-75, -75), (75, 75)),
+          ((-25, 74), (50, -99)),
+          ((-75, -25), (75, -75))],
+
 }
+
+# %% [markdown]
+# ### Algortym właściwy
 
 # %%
 
@@ -433,28 +477,7 @@ def find_intersections(segments: list):
     return result
 
 
-# segments = [((0, 0), (20, 20)),
-#             ((2, 5), (8, 5)),
-#             ((5, 10), (17, 15)),
-#             ((5, 15), (15, 5)), ]
-
-segments = [((-75, -75), (75, 75)),
-            ((-75, 75), (25, -25)),
-            ((-75, 50), (75, 50)), ]
-
-# segments = [((-100, 0), (100, 0)),  # 0 -
-#             ((-75, 25), (50, -50)),  # 1 \
-#             ((75, 25), (-50, -50)), ]  # 2 /
-
-# segments = [((-75, 0), (50, 75)),
-#             ((-50, 75), (75, 0)),
-#             ((-50, 25), (25, -75))]
-
-# segments = [((-75, -75), (75, 75)),
-#             ((-25, 74), (50, -99)),
-#             ((-75, -25), (75, -75))]
-
-print(find_intersections(segments))
+print(find_intersections(SETS["B"]))
 
 
 # %%
@@ -508,11 +531,15 @@ fig, ax = plt.subplots()
 ax.set_xlim(-100, 100)
 ax.set_ylim(-100, 100)
 
+segments = SETS["B"]
 draw_segments(ax, segments)
 draw_intersections(ax, segments)
 draw_texts(ax, segments)
 
 fig.show()
+
+# %% [markdown]
+# ### Interfejs wyświetlania odcinków i przecięć oraz dodawania odcinków
 
 # %%
 
@@ -629,6 +656,9 @@ class Application(object):
 
 
 app = Application()
+
+# %% [markdown]
+# ### Animacja algorytmu
 
 # %%
 
@@ -809,24 +839,29 @@ def animate(segments):
     return ani
 
 
-segments = [((-75, -75), (75, 75)),
-            ((-75, 75), (25, -25)),
-            ((-75, 50), (75, 50)), ]
-
-ani = animate(segments)
+ani = animate(SETS["D"])
 display(ani)
+
+# %% [markdown]
+# ### Zapis animacji do pliku GIF
 # %%
 if SAVE_FILES:
     ani.save("Lab4Raport/ani.gif")
 
+# %% [markdown]
+# ### Zbiór testowy
 # %%
 app2 = Application(SETS["X"])
 animate(app2.segments)
 
+# %% [markdown]
+# ### Zbiór testowy
 # %%
 app3 = Application(SETS["K"])
 animate(app3.segments)
 
+# %% [markdown]
+# ### Zbiór losowy
 # %%
 app4 = Application(gen_n=15)
 animate(app4.segments)
