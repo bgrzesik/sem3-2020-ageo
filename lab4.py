@@ -312,6 +312,39 @@ def any_intersects(segments: list):
 
     return False
 
+# %%
+
+
+SETS = {
+    "X": [((-91.22427690891698, 80.36030219083375),
+           (75.00948932484928, -91.810384265567)),
+          ((-86.77158674194109, -89.95509669599372),
+           (85.77015722837433, 69.5996342873087)),
+          ((2.282216597576536, -58.04415049933323),
+           (24.174609918541307, 43.996665827197376)),
+          ((29.74047262726114, -59.157323041077206),
+           (50.890750920396584, 55.1283912446371)),
+          ((-74.15563126884275, -10.548788718257157),
+           (-37.42093739129173, -10.177731204342507))],
+    "K": [((-74.15563126884275, -86.53125087373218),
+           (-26.289211973852034, 63.13985569478302)),
+          ((-46.69737523915816, -86.90230838764683),
+           (10.816539417613654, 58.55223706689864)),
+          ((-18.12594666772958, -89.49971098504943),
+           (38.64585296121291, 53.35743187209343)),
+          ((26.772012515943885, -86.90230838764683),
+           (69.81468413004407, 50.01791424686152)),
+          ((-94.56379453414888, -79.48115810935369),
+           (-62.28179082357374, 64.48915728953315)),
+          ((-90.85321939500231, 54.84166192775206),
+           (89.48073236752089, 16.251680480627755)),
+          ((-94.93485204806353, 21.44648567543294),
+           (83.17275463097172, -32.727911356106944)),
+          ((-94.93485204806353, -11.5776330629715),
+           (66.47516650481217, -60.5572248997062)),
+          ((-94.19273702023423, -38.66483157874144),
+           (68.33045407438544, -89.49971098504943))]
+}
 
 # %%
 
@@ -485,7 +518,7 @@ fig.show()
 
 
 class Application(object):
-    def __init__(self):
+    def __init__(self, segments=None, gen_n=None):
         self.fig = plt.figure(figsize=(9, 7))
 
         SPECS = {"width_ratios": [7, 2],
@@ -498,11 +531,17 @@ class Application(object):
 
         self.ax = self.fig.add_subplot(gs1[0])
 
+        self.text_ax = self.ax.text(-100, 105, "Application")
+
         self.ax.set_aspect("equal")
         self.ax.set_xlim(-100, 100)
         self.ax.set_ylim(-100, 100)
 
-        self.segments = []
+        if segments:
+            self.segments = segments
+        else:
+            self.segments = []
+
         self.actors = []
         self.c_points = None
 
@@ -513,12 +552,15 @@ class Application(object):
         self.reset_btn.on_clicked(self.clear)
 
         btn_ax = self.fig.add_subplot(gs2[3])
-        self.n_input = wig.TextBox(btn_ax, "N")
+        self.n_input = wig.TextBox(btn_ax, "N", initial=str(gen_n))
         self.n_input.on_submit(self.gen)
 
         btn_ax = self.fig.add_subplot(gs2[5])
-        self.reset_btn = wig.Button(btn_ax, "Generuj")
-        self.reset_btn.on_clicked(self.gen)
+        self.gen_btn = wig.Button(btn_ax, "Generuj")
+        self.gen_btn.on_clicked(self.gen)
+
+        if gen_n:
+            self.gen()
 
         self.draw()
         self.fig.show()
@@ -528,6 +570,10 @@ class Application(object):
         self.actors.extend(draw_segments(self.ax, self.segments))
         self.actors.extend(draw_texts(self.ax, self.segments))
         self.actors.extend(draw_intersections(self.ax, self.segments))
+
+        n = len(find_intersections(self.segments))
+        self.text_ax.set_text(
+            f"Liczba odcinków: {len(self.segments)}\nLiczba przecięć {n}")
 
     def add_segment(self, event=None):
         if event.inaxes not in {actor.axes for actor in self.actors} \
@@ -772,3 +818,15 @@ display(ani)
 # %%
 if SAVE_FILES:
     ani.save("Lab4Raport/ani.gif")
+
+# %%
+app2 = Application(SETS["X"])
+animate(app2.segments)
+
+# %%
+app3 = Application(SETS["K"])
+animate(app3.segments)
+
+# %%
+app4 = Application(gen_n=15)
+animate(app4.segments)
